@@ -1,5 +1,5 @@
 """
-SevaSetu - "Bridge to Healthcare"
+ArogyaBridge - "Bridge to Healthcare"
 SIH 2026 | PS ID: SIH26133
 Streamlit Prototype (MVP) for live demo
 
@@ -20,6 +20,8 @@ import os
 import sqlite3
 import uuid
 import random
+import hashlib
+import secrets
 from datetime import datetime, timedelta
 
 import pandas as pd
@@ -33,7 +35,7 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 GROQ_MODEL = "llama-3.1-8b-instant"
 
 st.set_page_config(
-    page_title="SevaSetu | SIH26133",
+    page_title="ArogyaBridge | SIH26133",
     page_icon="🩺",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -53,7 +55,7 @@ FACILITIES = [
 # ---------------------------------------------------------------------------
 T = {
     "en": {
-        "app_title": "SevaSetu — Bridge to Healthcare",
+        "app_title": "ArogyaBridge — Bridge to Healthcare",
         "role": "Select your role",
         "asha": "ASHA / ANM Worker",
         "doctor": "Doctor / Facility Dashboard",
@@ -77,9 +79,26 @@ T = {
         "prescription": "Prescription",
         "save_prescription": "Save Prescription & Complete Referral",
         "teleconsult": "Start Teleconsultation (WebRTC)",
+        "patient_portal": "Patient Portal",
+        "login": "Login",
+        "register_tab": "Register",
+        "login_btn": "Login",
+        "confirm_password": "Confirm Password",
+        "password": "Password",
+        "invalid_login": "Invalid phone number or password.",
+        "welcome_back": "Welcome back",
+        "my_health_record": "My Health Record",
+        "my_triage_history": "My Symptom / Triage History",
+        "my_referrals": "My Referrals & Prescriptions",
+        "book_appointment": "Book Appointment",
+        "sos": "Emergency SOS",
+        "logout_btn": "Logout",
+        "no_records_yet": "No records yet.",
+        "create_login": "Create your app login",
+        "phone_login_hint": "Use your registered phone number to log in.",
     },
     "hi": {
-        "app_title": "सेवासेतु — स्वास्थ्य सेवा का पुल",
+        "app_title": "ArogyaBridge — स्वास्थ्य सेवा का पुल",
         "role": "अपनी भूमिका चुनें",
         "asha": "आशा / एएनएम कार्यकर्ता",
         "doctor": "डॉक्टर / सुविधा डैशबोर्ड",
@@ -103,9 +122,26 @@ T = {
         "prescription": "नुस्खा",
         "save_prescription": "नुस्खा सहेजें और रेफरल पूरा करें",
         "teleconsult": "टेलीकंसल्टेशन शुरू करें (WebRTC)",
+        "patient_portal": "रोगी पोर्टल",
+        "login": "लॉगिन",
+        "register_tab": "पंजीकरण करें",
+        "login_btn": "लॉगिन करें",
+        "confirm_password": "पासवर्ड की पुष्टि करें",
+        "password": "पासवर्ड",
+        "invalid_login": "फ़ोन नंबर या पासवर्ड गलत है।",
+        "welcome_back": "वापसी पर स्वागत है",
+        "my_health_record": "मेरा स्वास्थ्य रिकॉर्ड",
+        "my_triage_history": "मेरा लक्षण / ट्राइएज इतिहास",
+        "my_referrals": "मेरे रेफरल और नुस्खे",
+        "book_appointment": "अपॉइंटमेंट बुक करें",
+        "sos": "आपातकालीन SOS",
+        "logout_btn": "लॉगआउट",
+        "no_records_yet": "अभी तक कोई रिकॉर्ड नहीं है।",
+        "create_login": "अपना ऐप लॉगिन बनाएं",
+        "phone_login_hint": "लॉगिन करने के लिए अपना पंजीकृत फ़ोन नंबर उपयोग करें।",
     },
     "mr": {
-        "app_title": "सेवासेतू — आरोग्यसेवेचा पूल",
+        "app_title": "ArogyaBridge — आरोग्यसेवेचा पूल",
         "role": "तुमची भूमिका निवडा",
         "asha": "आशा / एएनएम कार्यकर्ता",
         "doctor": "डॉक्टर / सुविधा डॅशबोर्ड",
@@ -131,7 +167,7 @@ T = {
         "teleconsult": "टेलिकन्सल्टेशन सुरू करा (WebRTC)",
     },
     "ta": {
-        "app_title": "சேவாசேது — சுகாதார சேவைக்கான பாலம்",
+        "app_title": "ArogyaBridge — சுகாதார சேவைக்கான பாலம்",
         "role": "உங்கள் பாத்திரத்தைத் தேர்ந்தெடுக்கவும்",
         "asha": "ஆஷா / ஏஎன்எம் பணியாளர்",
         "doctor": "மருத்துவர் / மையம் டாஷ்போர்டு",
@@ -157,7 +193,7 @@ T = {
         "teleconsult": "தொலைத் தொடர்பு ஆலோசனையைத் தொடங்கவும் (WebRTC)",
     },
     "te": {
-        "app_title": "సేవాసేతు — ఆరోగ్య సేవకు వంతెన",
+        "app_title": "ArogyaBridge — ఆరోగ్య సేవకు వంతెన",
         "role": "మీ పాత్రను ఎంచుకోండి",
         "asha": "ఆశా / ఏఎన్ఎం కార్యకర్త",
         "doctor": "డాక్టర్ / సదుపాయ డాష్‌బోర్డ్",
@@ -183,7 +219,7 @@ T = {
         "teleconsult": "టెలికన్సల్టేషన్ ప్రారంభించండి (WebRTC)",
     },
     "bn": {
-        "app_title": "সেবাসেতু — স্বাস্থ্যসেবার সেতু",
+        "app_title": "ArogyaBridge — স্বাস্থ্যসেবার সেতু",
         "role": "আপনার ভূমিকা নির্বাচন করুন",
         "asha": "আশা / এএনএম কর্মী",
         "doctor": "ডাক্তার / সুবিধা ড্যাশবোর্ড",
@@ -213,7 +249,10 @@ T = {
 
 def tr(key: str) -> str:
     lang = st.session_state.get("ui_lang", "en")
-    return T.get(lang, T["en"]).get(key, key)
+    lang_dict = T.get(lang, T["en"])
+    if key in lang_dict:
+        return lang_dict[key]
+    return T["en"].get(key, key)
 
 
 # ---------------------------------------------------------------------------
@@ -266,6 +305,14 @@ def init_db():
         );
         """
     )
+    conn.commit()
+
+    # migration: add login columns to patients table if upgrading from an older schema
+    existing_cols = [r[1] for r in c.execute("PRAGMA table_info(patients)").fetchall()]
+    if "password_hash" not in existing_cols:
+        c.execute("ALTER TABLE patients ADD COLUMN password_hash TEXT")
+    if "salt" not in existing_cols:
+        c.execute("ALTER TABLE patients ADD COLUMN salt TEXT")
     conn.commit()
 
     # seed medicine stock once
@@ -367,6 +414,20 @@ def gen_abha_id():
     return "ABHA-" + str(uuid.uuid4())[:8].upper()
 
 
+def hash_password(password: str, salt: str = None):
+    """Simple salted PBKDF2 hash — adequate for a hackathon prototype.
+    (Production would use a vetted library + HTTPS-only cookies/session tokens.)"""
+    if salt is None:
+        salt = secrets.token_hex(16)
+    pwd_hash = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 100_000).hex()
+    return pwd_hash, salt
+
+
+def verify_password(password: str, salt: str, stored_hash: str) -> bool:
+    test_hash, _ = hash_password(password, salt)
+    return test_hash == stored_hash
+
+
 def priority_badge(priority: str) -> str:
     color = PRIORITY_COLORS.get(priority, "#999")
     return f"<span style='background:{color};color:white;padding:3px 10px;border-radius:12px;font-weight:600;font-size:0.8em'>{priority}</span>"
@@ -388,8 +449,7 @@ if "ui_lang" not in st.session_state:
     st.session_state.ui_lang = "en"
 
 with st.sidebar:
-    st.markdown("## 🩺 SevaSetu")
-    st.caption("SIH26133 · Govt. of Maharashtra")
+    st.markdown("## 🩺 ArogyaBridge")
     LANG_LABELS = {
         "en": "English",
         "hi": "हिंदी (Hindi)",
@@ -403,7 +463,7 @@ with st.sidebar:
 
     page = st.radio(
         tr("role"),
-        [tr("asha"), tr("doctor"), tr("admin"), tr("medicine")],
+        [tr("patient_portal"), tr("asha"), tr("doctor"), tr("admin"), tr("medicine")],
     )
     st.divider()
     st.caption(
@@ -413,9 +473,122 @@ with st.sidebar:
 st.title(tr("app_title"))
 
 # ---------------------------------------------------------------------------
+# PAGE: PATIENT PORTAL (self-service login/register for patients)
+# ---------------------------------------------------------------------------
+if page == tr("patient_portal"):
+    if "patient_logged_in" not in st.session_state:
+        st.session_state.patient_logged_in = False
+        st.session_state.patient_abha_id = None
+
+    if not st.session_state.patient_logged_in:
+        login_tab, register_tab = st.tabs(["🔐 " + tr("login"), "📝 " + tr("register_tab")])
+
+        with login_tab:
+            st.caption(tr("phone_login_hint"))
+            login_phone = st.text_input(tr("phone"), key="login_phone")
+            login_password = st.text_input(tr("password"), type="password", key="login_password")
+            if st.button(tr("login_btn"), type="primary"):
+                match = df(
+                    "SELECT abha_id, name, password_hash, salt FROM patients WHERE phone = ? AND password_hash IS NOT NULL",
+                    (login_phone,),
+                )
+                if match.empty or not verify_password(login_password, match.iloc[0]["salt"], match.iloc[0]["password_hash"]):
+                    st.error(tr("invalid_login"))
+                else:
+                    st.session_state.patient_logged_in = True
+                    st.session_state.patient_abha_id = match.iloc[0]["abha_id"]
+                    st.session_state.patient_name = match.iloc[0]["name"]
+                    st.rerun()
+
+        with register_tab:
+            st.caption(tr("create_login"))
+            with st.form("patient_self_register_form"):
+                c1, c2 = st.columns(2)
+                r_name = c1.text_input(tr("name"), key="r_name")
+                r_age = c2.number_input(tr("age"), min_value=0, max_value=120, value=30, key="r_age")
+                r_gender = c1.selectbox(tr("gender"), ["Female", "Male", "Other"], key="r_gender")
+                r_village = c2.text_input(tr("village"), key="r_village")
+                r_phone = c1.text_input(tr("phone"), key="r_phone")
+                r_lang = c2.selectbox(tr("language"), ["Marathi", "Hindi", "Tamil", "Telugu", "Bengali", "English"], key="r_lang")
+                r_password = c1.text_input(tr("password"), type="password", key="r_password")
+                r_confirm = c2.text_input(tr("confirm_password"), type="password", key="r_confirm")
+                r_submit = st.form_submit_button(tr("register_btn"), type="primary")
+
+                if r_submit:
+                    existing = df("SELECT abha_id FROM patients WHERE phone = ?", (r_phone,))
+                    if not r_name or not r_phone:
+                        st.error("Name and phone number are required.")
+                    elif not r_password or r_password != r_confirm:
+                        st.error("Passwords are empty or don't match.")
+                    elif not existing.empty:
+                        st.error("An account with this phone number already exists — please log in instead.")
+                    else:
+                        pwd_hash, salt = hash_password(r_password)
+                        new_abha_id = gen_abha_id()
+                        conn = get_conn()
+                        conn.execute(
+                            "INSERT INTO patients (abha_id, name, age, gender, village, phone, language, created_at, password_hash, salt) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                            (new_abha_id, r_name, r_age, r_gender, r_village, r_phone, r_lang, datetime.now().isoformat(), pwd_hash, salt),
+                        )
+                        conn.commit()
+                        conn.close()
+                        st.success(f"✅ Account created! Your ABHA-linked ID: **{new_abha_id}**. Please log in from the tab above.")
+
+    else:
+        abha_id = st.session_state.patient_abha_id
+        colA, colB = st.columns([4, 1])
+        colA.subheader(f"👋 {tr('welcome_back')}, {st.session_state.get('patient_name', '')}")
+        if colB.button(tr("logout_btn")):
+            st.session_state.patient_logged_in = False
+            st.session_state.patient_abha_id = None
+            st.rerun()
+
+        profile = df("SELECT * FROM patients WHERE abha_id = ?", (abha_id,))
+        p = profile.iloc[0]
+
+        st.divider()
+        c1, c2, c3 = st.columns(3)
+        c1.metric("ABHA ID", p["abha_id"])
+        c2.metric(tr("age"), int(p["age"]))
+        c3.metric(tr("village"), p["village"] or "—")
+
+        b1, b2 = st.columns(2)
+        with b1:
+            if st.button("📅 " + tr("book_appointment")):
+                st.info("Appointment booking + live queue tracker would launch here (Patient App feature).")
+        with b2:
+            if st.button("🆘 " + tr("sos"), type="primary"):
+                st.error("🚨 SOS triggered — nearest facility and emergency contacts would be notified instantly.")
+
+        st.divider()
+        st.subheader("📋 " + tr("my_health_record"))
+
+        hist_tab, ref_tab = st.tabs(["🩺 " + tr("my_triage_history"), "📨 " + tr("my_referrals")])
+        with hist_tab:
+            triage_hist = df(
+                "SELECT symptoms_text, priority, created_by, created_at FROM triage WHERE abha_id = ? ORDER BY created_at DESC",
+                (abha_id,),
+            )
+            if triage_hist.empty:
+                st.info(tr("no_records_yet"))
+            else:
+                st.dataframe(triage_hist, use_container_width=True, hide_index=True)
+
+        with ref_tab:
+            ref_hist = df(
+                """SELECT facility, status, prescription, doctor_notes, created_at, completed_at
+                   FROM referrals WHERE abha_id = ? ORDER BY created_at DESC""",
+                (abha_id,),
+            )
+            if ref_hist.empty:
+                st.info(tr("no_records_yet"))
+            else:
+                st.dataframe(ref_hist, use_container_width=True, hide_index=True)
+
+# ---------------------------------------------------------------------------
 # PAGE: ASHA / ANM WORKER
 # ---------------------------------------------------------------------------
-if page == tr("asha"):
+elif page == tr("asha"):
     tab1, tab2 = st.tabs(["📝 " + tr("register_patient"), "🤖 " + tr("run_triage") + " & Referral"])
 
     with tab1:
@@ -427,21 +600,27 @@ if page == tr("asha"):
             village = c2.text_input(tr("village"))
             phone = c1.text_input(tr("phone"))
             patient_lang = c2.selectbox(tr("language"), ["Marathi", "Hindi", "Tamil", "Telugu", "Bengali", "English"])
+            setup_login = st.checkbox(tr("create_login") + " (" + tr("patient_portal") + ")")
+            asha_password = st.text_input(tr("password"), type="password") if setup_login else ""
             submitted = st.form_submit_button(tr("register_btn"), type="primary")
             if submitted:
                 if not name:
                     st.error("Name is required.")
+                elif setup_login and not asha_password:
+                    st.error("Enter a password, or uncheck the app-login option.")
                 else:
                     abha_id = gen_abha_id()
+                    pwd_hash, salt = (hash_password(asha_password) if setup_login else (None, None))
                     conn = get_conn()
                     conn.execute(
-                        "INSERT INTO patients VALUES (?,?,?,?,?,?,?,?)",
-                        (abha_id, name, age, gender, village, phone, patient_lang, datetime.now().isoformat()),
+                        "INSERT INTO patients (abha_id, name, age, gender, village, phone, language, created_at, password_hash, salt) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                        (abha_id, name, age, gender, village, phone, patient_lang, datetime.now().isoformat(), pwd_hash, salt),
                     )
                     conn.commit()
                     conn.close()
                     st.success(f"✅ Patient registered! ABHA-linked ID: **{abha_id}**")
-                    st.balloons()
+                    if setup_login:
+                        st.info(f"Patient can now log in from the Patient Portal using phone **{phone}** and the password you set.")
 
         st.divider()
         st.subheader("Registered Patients")
