@@ -5,7 +5,64 @@ This is the **hackathon demo prototype**: one Streamlit app simulating all three
 user roles (ASHA worker, Doctor, District Admin) plus the AI triage engine and
 medicine stock checker.
 
-## Quick start
+## Getting the code (for teammates)
+
+If you're new to Git/GitHub, follow these exactly — one time setup only.
+
+### 1. Install prerequisites (skip if already installed)
+- **Git** — https://git-scm.com/downloads (just click through the installer with defaults)
+- **Python 3.10+** — https://www.python.org/downloads/ (on Windows, tick **"Add Python to PATH"** during install)
+
+Check both worked by opening a terminal (Command Prompt / PowerShell / Terminal) and running:
+```bash
+git --version
+python --version
+```
+Both should print a version number, not an error.
+
+### 2. Clone the repo
+Pick a folder on your computer where you want the project, open a terminal there, and run:
+```bash
+git clone https://github.com/MAYANK-108/sevasetu.git
+cd sevasetu
+```
+This downloads the whole project into a new `sevasetu` folder and moves you into it.
+
+### 3. Create a virtual environment (keeps dependencies isolated)
+```bash
+python -m venv venv
+```
+Activate it:
+- **Windows (PowerShell):** `venv\Scripts\Activate.ps1`
+- **Windows (Command Prompt):** `venv\Scripts\activate.bat`
+- **Mac/Linux:** `source venv/bin/activate`
+
+You'll know it worked because your terminal prompt now starts with `(venv)`.
+
+### 4. Install dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### 5. Run the app
+```bash
+streamlit run app.py
+```
+It should auto-open in your browser at `http://localhost:8501`. If not, copy that URL from the terminal into your browser manually.
+
+### Getting future updates
+Whenever someone pushes new changes to GitHub, get them with:
+```bash
+git pull
+```
+(Run this from inside the `sevasetu` folder, with your virtual environment activated.)
+
+### If something goes wrong
+- **`git` or `python` not recognized** → it's not installed or not added to PATH; reinstall and check the box for adding to PATH.
+- **`pip install` fails** → make sure your virtual environment is activated (prompt shows `(venv)`), then try again.
+- **Port already in use** → close other Streamlit tabs/terminals, or run `streamlit run app.py --server.port 8502`.
+
+## Quick start (if you already have the repo cloned)
 
 ```bash
 pip install -r requirements.txt
