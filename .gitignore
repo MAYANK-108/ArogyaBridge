@@ -1,0 +1,17 @@
+
+.streamlit/secrets.toml
+
+sevasetu.db
+*.db
+
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+*.egg-info/
+
+
+.DS_Store
+.vscode/
+.idea/
