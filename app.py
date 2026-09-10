@@ -25,6 +25,8 @@ from datetime import datetime, timedelta
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
+from streamlit_autorefresh import st_autorefresh
+import altair as alt
 
 # ─────────────────────────── CONFIG ────────────────────────────
 DB_PATH        = os.path.join(os.path.dirname(__file__), "sevasetu.db")
@@ -511,6 +513,8 @@ def init_db():
 
     add_col("triage", "temperature"); add_col("triage", "spo2"); add_col("triage", "pulse")
     add_col("triage", "triggered_by")
+    
+    
     add_col("referrals", "doctor_id"); add_col("referrals", "acknowledged_at")
     add_col("referrals", "acknowledged_by"); add_col("referrals", "escalated_from")
     add_col("referrals", "escalated_to"); add_col("referrals", "teleconsult_notes")
@@ -563,17 +567,16 @@ def verify_aadhaar(input_aadhaar: str, stored_hash: str) -> bool:
     return hash_aadhaar(input_aadhaar) == stored_hash
 
 def mask_aadhaar(stored_val):
-    """
-    Since we now store a hash, we can't recover the last 4 digits.
-    Display a fixed masked placeholder instead.
-    """
-    if not stored_val or stored_val == "—":
+    if stored_val is None or stored_val == "—":
         return "—"
-    # Legacy: if value looks like a raw Aadhaar number (all digits, 12 chars)
-    raw = (stored_val or "").strip()
+    try:
+        if pd.isna(stored_val):
+            return "—"
+    except (TypeError, ValueError):
+        pass
+    raw = str(stored_val).strip()
     if raw.isdigit() and len(raw) == 12:
         return "XXXX-XXXX-" + raw[-4:]
-    # New: it's a hash — just show masked placeholder
     return "XXXX-XXXX-[Hashed]"
 
 # ─────────────────────────── SMS HELPER (Fix 3) ─────────────
@@ -892,6 +895,18 @@ def clean_df(df):
     if df is None or df.empty:
         return df
     return df.fillna("—")
+def sv(val, default="—"):
+    """Safe display value — turns None / NaN / blank strings into a clean placeholder."""
+    if val is None:
+        return default
+    try:
+        if pd.isna(val):
+            return default
+    except (TypeError, ValueError):
+        pass
+    if isinstance(val, str) and val.strip() == "":
+        return default
+    return val
 
 def get_facility_names():
     df_fac = qdf("SELECT name FROM facilities ORDER BY name")
@@ -1369,11 +1384,14 @@ with st.sidebar:
     lc = st.selectbox("Language", list(LANG_LABELS.values()))
     st.session_state.ui_lang = next(k for k, v in LANG_LABELS.items() if v == lc)
     st.divider()
-    ROLES = [
-        tr("patient_portal"), tr("asha"), tr("doctor"),
-        tr("facility"), tr("admin"),
-    ]
-    page = st.radio(tr("role"), ROLES)
+    ROLE_KEYS = ["patient_portal", "asha", "doctor", "facility", "admin"]
+    ROLES = [tr(k) for k in ROLE_KEYS]
+    if "role_key" not in st.session_state:
+        st.session_state.role_key = ROLE_KEYS[0]
+    default_index = ROLE_KEYS.index(st.session_state.role_key)
+    picked_label = st.radio(tr("role"), ROLES, index=default_index)
+    st.session_state.role_key = ROLE_KEYS[ROLES.index(picked_label)]
+    page = picked_label
     st.divider()
     st.caption("AI: " + ("Groq Llama 3.1 (multilingual)" if GROQ_API_KEY else "Rule-based fallback"))
     st.caption("SMS: " + ("Fast2SMS active" if FAST2SMS_KEY else "SMS not configured"))
@@ -1448,6 +1466,8 @@ if page == tr("patient_portal"):
             armed_at = datetime.fromisoformat(st.session_state["sos_armed_at"])
             elapsed  = (datetime.now() - armed_at).total_seconds()
             remaining = max(0, 5 - int(elapsed))
+            if remaining > 0:
+                st_autorefresh(interval=1000, limit=6, key="sos_countdown_tick")
 
             with st.container(border=True):
                 st.markdown(
@@ -1477,8 +1497,9 @@ if page == tr("patient_portal"):
                     st.info("SOS cancelled. No alert was sent.")
                     st.rerun()
 
-                if remaining == 0 or cc2.button("SEND NOW (skip timer)", type="primary",
-                                                 use_container_width=True):
+                send_now_clicked = cc2.button("SEND NOW (skip timer)", type="primary",
+                                               use_container_width=True)
+                if remaining == 0 or send_now_clicked:
                     past_triage = qdf(
                         "SELECT priority,department,symptoms_text,created_at FROM triage "
                         "WHERE abha_id=? ORDER BY created_at DESC LIMIT 5", (abha_id,)
@@ -2072,15 +2093,28 @@ elif page == tr("asha"):
                             fac = st.selectbox(tr("select_facility"), facs)
                             if st.button(tr("refer_btn"), type="primary"):
                                 conn = get_conn()
+                                ref_id = str(uuid.uuid4())
                                 conn.execute(
-                                    "INSERT INTO referrals VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                                    (str(uuid.uuid4()), abha_id,
-                                     st.session_state["last_tid"], fac,
-                                     "PENDING", "", "", datetime.now().isoformat(),
-                                     None, None, None, None, None, None),
-                                )
+        """INSERT INTO referrals
+        (id,abha_id,triage_id,facility,status,prescription,doctor_notes,
+         created_at,completed_at,doctor_id,acknowledged_at,acknowledged_by,
+         escalated_from,escalated_to)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (ref_id, abha_id,
+         st.session_state["last_tid"], fac,
+         "PENDING", "", "", datetime.now().isoformat(),
+         None, None, None, None, None, None),
+    )
                                 conn.commit()
                                 conn.close()
+                                # notify doctors at the receiving facility
+                                doc_ids = qdf("SELECT id FROM doctors WHERE facility=?", (fac,))
+                                for did in doc_ids["id"].tolist():
+                                    send_notification(
+                                        "doctor", did,
+                                        f"New referral: {abha_id} ({pr}) — please check your Queue.",
+                                        pr, st.session_state["last_tid"], abha_id,
+                                    )
                                 st.success(f"Referral sent to {fac}.")
                                 del st.session_state["last_tid"]
                                 del st.session_state["last_abha_for_tid"]
@@ -2091,13 +2125,13 @@ elif page == tr("asha"):
         with tab3:
             st.caption("Patients needing follow-up based on their triage priority.")
             due = qdf(
-                """SELECT t.id as tid, p.name, p.phone, p.village, t.priority, t.department,
-                          t.follow_up_due_date
-                   FROM triage t JOIN patients p ON p.abha_id=t.abha_id
-                   WHERE t.follow_up_due_date IS NOT NULL
-                     AND (t.follow_up_done IS NULL OR t.follow_up_done=0)
-                   ORDER BY t.follow_up_due_date ASC"""
-            )
+        """SELECT t.id as tid, p.name, p.phone, p.village, t.priority, t.department,
+                  t.follow_up_due_date
+           FROM triage t JOIN patients p ON p.abha_id=t.abha_id
+           WHERE t.follow_up_due_date IS NOT NULL
+             AND (t.follow_up_done IS NULL OR t.follow_up_done=0)
+           ORDER BY t.follow_up_due_date ASC"""
+    )
             if due.empty:
                 st.success("No pending follow-ups.")
             else:
@@ -2105,17 +2139,10 @@ elif page == tr("asha"):
                 for _, r in due.iterrows():
                     overdue = r["follow_up_due_date"] < today
                     with st.container(border=True):
-                        dc1, dc2 = st.columns([4, 1])
                         label = (f"{'OVERDUE' if overdue else 'Due'} **{r['follow_up_due_date']}** "
-                                 f"— {r['name']} ({r['village'] or '—'})")
-                        dc1.markdown(label)
-                        dc1.caption(f"{r['priority']} · {r['department'] or '—'} · {r['phone'] or '—'}")
-                        if dc2.button("Done", key=f"fu_{r['tid']}", use_container_width=True):
-                            conn = get_conn()
-                            conn.execute("UPDATE triage SET follow_up_done=1 WHERE id=?", (r["tid"],))
-                            conn.commit()
-                            conn.close()
-                            st.rerun()
+                         f"— {r['name']} ({r['village'] or '—'})")
+                        st.markdown(label)
+                        st.caption(f"{r['priority']} · {r['department'] or '—'} · {r['phone'] or '—'}")
 
         with tab4:
             st.subheader("All Emergency (RED) Patients")
@@ -3190,7 +3217,8 @@ elif page == tr("admin"):
     total_p     = qdf("SELECT COUNT(*) as n FROM patients")["n"][0]
     total_t     = qdf("SELECT COUNT(*) as n FROM triage")["n"][0]
     total_r     = qdf("SELECT COUNT(*) as n FROM referrals")["n"][0]
-    comp_r      = qdf("SELECT COUNT(*) as n FROM referrals WHERE status='COMPLETED'")["n"][0]
+    comp_r      = qdf("SELECT COUNT(*) as n FROM referrals WHERE status='COMPLETED' "
+                      "AND (escalated_to IS NULL OR escalated_to='')")["n"][0]
     comp_rate   = (comp_r / total_r * 100) if total_r else 0
     pend_fu     = qdf("SELECT COUNT(*) as n FROM triage WHERE follow_up_due_date IS NOT NULL "
                       "AND (follow_up_done IS NULL OR follow_up_done=0)")["n"][0]
@@ -3228,8 +3256,20 @@ elif page == tr("admin"):
         with ch1:
             st.subheader("Triage by Priority")
             pr = qdf("SELECT priority,COUNT(*) as count FROM triage GROUP BY priority")
-            if not pr.empty: st.bar_chart(pr.set_index("priority"), horizontal=True)
-            else: st.info("No triage data yet.")
+            if not pr.empty:
+                chart = alt.Chart(pr).mark_bar().encode(
+                    x=alt.X("count:Q", title="Cases"),
+            y=alt.Y("priority:N", title="Priority", sort=["RED", "YELLOW", "GREEN"]),
+            color=alt.Color(
+                "priority:N",
+                scale=alt.Scale(domain=["RED", "YELLOW", "GREEN"],
+                                 range=[PRIORITY_COLORS["RED"], PRIORITY_COLORS["YELLOW"], PRIORITY_COLORS["GREEN"]]),
+                legend=None,
+            ),
+        )
+                st.altair_chart(chart, use_container_width=True)
+            else:
+                st.info("No triage data yet.")
         with ch2:
             st.subheader("Referrals by Facility")
             rf = qdf("SELECT facility,COUNT(*) as count FROM referrals GROUP BY facility")
@@ -3341,7 +3381,11 @@ elif page == tr("admin"):
             st.info("No village-linked records yet.")
         else:
             st.dataframe(clean_df(village_df), use_container_width=True, hide_index=True)
-            st.bar_chart(village_df.set_index("village")[["red_cases", "yellow_cases", "green_cases"]])
+            chart_data = village_df.set_index("village")[["red_cases", "yellow_cases", "green_cases"]].fillna(0)
+            st.bar_chart(
+    chart_data,
+    color=[PRIORITY_COLORS["RED"], PRIORITY_COLORS["YELLOW"], PRIORITY_COLORS["GREEN"]],
+)
 
     st.divider()
     st.subheader("Area-wise Patient Records")
