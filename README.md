@@ -1,11 +1,8 @@
 # 🩺 ArogyaBridge — Bridge to Healthcare
 
-> **Smart India Hackathon 2026 | PS ID: SIH26133**  
-> *Accessibility and quality of public healthcare services, particularly in rural and underserved areas*  
-> **Organization:** Government of Maharashtra — Maharashtra State Innovation Society  
-> **Category:** Software · Theme: MedTech / BioTech / HealthTech
-
----
+**Smart India Hackathon 2026 | PS ID: SIH26133**  
+*Accessibility and quality of public healthcare services, particularly in rural and underserved areas* 
+**Category:** Software · Theme: MedTech / BioTech / HealthTech
 
 ## What is ArogyaBridge?
 
@@ -13,13 +10,8 @@ ArogyaBridge is an integrated rural healthcare access platform that digitises th
 
 It is built as a working prototype for SIH 2026, demonstrating the viability of a production system that can be deployed across Maharashtra's Sub-Centres, PHCs, and Rural/District Hospitals.
 
----
-
-## Screenshots
 
 > Run the app locally and log in to each role to explore. All five dashboards are accessible from the sidebar.
-
----
 
 ## Key Features
 
@@ -120,7 +112,7 @@ It is built as a working prototype for SIH 2026, demonstrating the viability of 
 ```
 arogyabridge/
 ├── app.py                  # Main Streamlit application (single-file prototype)
-├── sevasetu.db             # SQLite database (auto-created on first run, gitignored)
+├── arogyabridge.db         # SQLite database (auto-created on first run, gitignored)
 ├── requirements.txt        # Python dependencies
 ├── .env.example            # Environment variable template
 └── README.md               # This file
@@ -137,7 +129,7 @@ arogyabridge/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/arogyabridge.git
+git clone https://github.com/MAYANK-108/ArogyaBridge
 cd arogyabridge
 ```
 
@@ -250,22 +242,8 @@ requests>=2.31.0
 - **DOTS** — Directly Observed Treatment, Short-course (TB protocol)
 - **IT Act 2000 + DPDP Act 2023** — Data minimization, purpose limitation, Aadhaar hashing
 
----
 
-## Team
 
-| Name | Role |
-|---|---|
-| *Your Name* | Team Lead / Full Stack |
-| *Member 2* | AI / ML |
-| *Member 3* | UI/UX |
-| *Member 4* | Backend / Database |
-| *Member 5* | Research / Documentation |
-| *Member 6* | Testing / Deployment |
-
-> **Institution:** *Your College Name*, *City*
-
----
 
 ## License
 

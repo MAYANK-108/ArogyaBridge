@@ -7,7 +7,7 @@ from streamlit_autorefresh import st_autorefresh
 import altair as alt
 
 # ─────────────────────────── CONFIG ────────────────────────────
-DB_PATH        = os.path.join(os.path.dirname(__file__), "sevasetu.db")
+DB_PATH        = os.path.join(os.path.dirname(__file__), "arogyabridge.db")
 GROQ_API_KEY   = os.environ.get("GROQ_API_KEY", "")
 GROQ_MODEL     = "llama-3.1-8b-instant"
 FAST2SMS_KEY   = os.environ.get("FAST2SMS_KEY", "")
