@@ -1,17 +1,29 @@
+.env
 
-.streamlit/secrets.toml
-
-sevasetu.db
 *.db
+*.sqlite
+*.sqlite3
 
 __pycache__/
-*.pyc
-.venv/
+*.py[cod]
+*.pyo
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
 venv/
 env/
-*.egg-info/
-
+.venv/
+.env/
 
 .DS_Store
+Thumbs.db
+
 .vscode/
 .idea/
+*.swp
+*.swo
+
+.streamlit/secrets.toml
